@@ -1,6 +1,6 @@
 <?php
-require_once 'DAO/TypeBorneDAO.php';
-require_once 'Modèle/TypeBorne.php';
+require_once __DIR__ . '/../DAO/TypeBorneDAO.php';
+require_once 'Modele/TypeBorne.php';
 
 /**
  * Classe TypeBorneController
@@ -46,30 +46,42 @@ class TypeBorneController {
 
     /**
      * Action: Créer un nouveau type de borne
-     * Paramètres: 
+     * Paramètres:
      *   - $code: code unique du type
-     *   - $dureeRevision: durée (en jours)
+     *   - $dureeRevision: durée d'une révision (en heures)
      *   - $nbJours: nombre de jours entre révisions
      *   - $nbUnites: nombre d'unités entre révisions
      */
     public function create($code, $dureeRevision, $nbJours, $nbUnites) {
         try {
             // Validation des données
-            if (empty($code) || empty($dureeRevision) || empty($nbJours) || empty($nbUnites)) {
+            if (trim((string)$code) === '' || trim((string)$dureeRevision) === ''
+                || trim((string)$nbJours) === '' || trim((string)$nbUnites) === '') {
                 echo "Tous les champs sont obligatoires";
                 return false;
             }
 
+            if (strlen($code) > 10) {
+                echo "Le code du type de borne ne doit pas dépasser 10 caractères";
+                return false;
+            }
+
             // Vérifier que les nombres sont valides
-            if (!is_numeric($dureeRevision) || !is_numeric($nbJours) || !is_numeric($nbUnites)) {
-                echo "Les valeurs doivent être des nombres";
+            if (!ctype_digit((string)$dureeRevision) || !ctype_digit((string)$nbJours) || !ctype_digit((string)$nbUnites)
+                || (int)$dureeRevision < 1 || (int)$nbJours < 1 || (int)$nbUnites < 1) {
+                echo "La durée et les intervalles de révision doivent être des entiers positifs";
                 return false;
             }
 
             // Créer l'objet TypeBorne
             $typeBorne = new TypeBorne($code, $dureeRevision, $nbJours, $nbUnites);
-            
+
             // Sauvegarder
+            if ($this->typeBorneDAO->getByCode($code)) {
+                echo "Le type de borne « $code » existe déjà";
+                return false;
+            }
+
             if ($this->typeBorneDAO->create($typeBorne)) {
                 echo "Type de borne créé avec succès";
                 return true;
@@ -89,19 +101,26 @@ class TypeBorneController {
     public function update($code, $dureeRevision, $nbJours, $nbUnites) {
         try {
             // Validation
-            if (empty($code) || empty($dureeRevision) || empty($nbJours) || empty($nbUnites)) {
+            if (trim((string)$code) === '' || trim((string)$dureeRevision) === ''
+                || trim((string)$nbJours) === '' || trim((string)$nbUnites) === '') {
                 echo "Tous les champs sont obligatoires";
                 return false;
             }
 
-            if (!is_numeric($dureeRevision) || !is_numeric($nbJours) || !is_numeric($nbUnites)) {
-                echo "Les valeurs doivent être des nombres";
+            if (strlen($code) > 10) {
+                echo "Le code du type de borne ne doit pas dépasser 10 caractères";
+                return false;
+            }
+
+            if (!ctype_digit((string)$dureeRevision) || !ctype_digit((string)$nbJours) || !ctype_digit((string)$nbUnites)
+                || (int)$dureeRevision < 1 || (int)$nbJours < 1 || (int)$nbUnites < 1) {
+                echo "La durée et les intervalles de révision doivent être des entiers positifs";
                 return false;
             }
 
             // Créer l'objet
             $typeBorne = new TypeBorne($code, $dureeRevision, $nbJours, $nbUnites);
-            
+
             // Mettre à jour
             if ($this->typeBorneDAO->update($typeBorne)) {
                 echo "Type de borne modifié avec succès";

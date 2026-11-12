@@ -1,8 +1,8 @@
 <?php
-require_once 'DAO/BorneDAO.php';
-require_once 'DAO/TypeBorneDAO.php';
-require_once 'Modèle/Borne.php';
-require_once 'Controleur/MaintenanceController.php';
+require_once __DIR__ . '/../DAO/BorneDAO.php';
+require_once __DIR__ . '/../DAO/TypeBorneDAO.php';
+require_once 'Modele/Borne.php';
+require_once __DIR__ . '/../Controleur/MaintenanceController.php';
 
 /**
  * Classe BorneController
@@ -61,8 +61,8 @@ class BorneController {
     public function create($dateDerniereRevision, $indiceCompteurUnites, $codeTypeBorne, $idStation) {
         try {
             // Validation des données
-            if (empty($dateDerniereRevision) || empty($indiceCompteurUnites) || 
-                empty($codeTypeBorne) || empty($idStation)) {
+            if (self::estVide($dateDerniereRevision) || self::estVide($indiceCompteurUnites) ||
+                self::estVide($codeTypeBorne) || self::estVide($idStation)) {
                 echo "Tous les champs sont obligatoires";
                 return false;
             }
@@ -74,14 +74,14 @@ class BorneController {
             }
 
             // Vérifier que l'indice est un nombre
-            if (!is_numeric($indiceCompteurUnites)) {
-                echo "L'indice doit être un nombre";
+            if (!ctype_digit((string)$indiceCompteurUnites)) {
+                echo "L'indice du compteur doit être un nombre entier positif";
                 return false;
             }
 
             // Créer l'objet Borne
             $borne = new Borne(null, $dateDerniereRevision, $indiceCompteurUnites, $codeTypeBorne, $idStation);
-            
+
             // Sauvegarder
             $idBorne = $this->borneDAO->create($borne);
             if (!$idBorne) {
@@ -111,8 +111,8 @@ class BorneController {
     public function update($idBorne, $dateDerniereRevision, $indiceCompteurUnites, $codeTypeBorne, $idStation) {
         try {
             // Validation
-            if (empty($idBorne) || empty($dateDerniereRevision) || empty($indiceCompteurUnites) || 
-                empty($codeTypeBorne) || empty($idStation)) {
+            if (self::estVide($idBorne) || self::estVide($dateDerniereRevision) || self::estVide($indiceCompteurUnites) ||
+                self::estVide($codeTypeBorne) || self::estVide($idStation)) {
                 echo "Tous les champs sont obligatoires";
                 return false;
             }
@@ -122,14 +122,14 @@ class BorneController {
                 return false;
             }
 
-            if (!is_numeric($indiceCompteurUnites)) {
-                echo "L'indice doit être un nombre";
+            if (!ctype_digit((string)$indiceCompteurUnites)) {
+                echo "L'indice du compteur doit être un nombre entier positif";
                 return false;
             }
 
             // Créer l'objet
             $borne = new Borne($idBorne, $dateDerniereRevision, $indiceCompteurUnites, $codeTypeBorne, $idStation);
-            
+
             // Mettre à jour
             if ($this->borneDAO->update($borne)) {
                 echo "Borne modifiée avec succès";
@@ -173,6 +173,14 @@ class BorneController {
     private function isValidDate($date) {
         $d = \DateTime::createFromFormat('Y-m-d', $date);
         return $d && $d->format('Y-m-d') === $date;
+    }
+
+    /**
+     * Fonction utilitaire: un champ est vide s'il est absent ou ne contient que des espaces.
+     * (empty() considère "0" comme vide, ce qui refusait un compteur à 0.)
+     */
+    private static function estVide($valeur) {
+        return $valeur === null || trim((string)$valeur) === '';
     }
 }
 ?>

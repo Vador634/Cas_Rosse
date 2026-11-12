@@ -18,8 +18,11 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Base de données : `Hyperborea_Bdd`
+-- Base de données : `rosse_bdd`
 --
+
+CREATE DATABASE IF NOT EXISTS `rosse_bdd` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `rosse_bdd`;
 
 -- --------------------------------------------------------
 
@@ -209,6 +212,40 @@ ALTER TABLE `Visite`
 ALTER TABLE `Visite_Borne`
   ADD CONSTRAINT `Visite_Borne_ibfk_1` FOREIGN KEY (`idVisite`) REFERENCES `Visite` (`idVisite`),
   ADD CONSTRAINT `Visite_Borne_ibfk_2` FOREIGN KEY (`idBorne`) REFERENCES `Borne` (`idBorne`);
+
+--
+-- Données de démonstration
+--
+
+INSERT INTO `TypeBorne` (`codeTypeBorne`, `dureeRevision`, `nbJoursEntreRevisions`, `nbUnitesEntreRevisions`) VALUES
+('AC22', 2, 180, 15000),
+('DC50', 4, 120, 30000),
+('HPC150', 6, 90, 60000);
+
+INSERT INTO `Station` (`idStation`, `libelleEmplacement`) VALUES
+(1, 'Bayonne - Parking Lachepaillet'),
+(2, 'Anglet - Centre commercial BAB2'),
+(3, 'Biarritz - Gare');
+
+INSERT INTO `Technicien` (`matricule`, `nom`, `prenom`) VALUES
+(101, 'Etcheverry', 'Maite'),
+(102, 'Dupont', 'Lucas'),
+(103, 'Garcia', 'Ines');
+
+INSERT INTO `Borne` (`idBorne`, `dateDerniereRevision`, `indiceCompteurUnites`, `codeTypeBorne`, `idStation`) VALUES
+(1, '2026-01-15', 12000, 'AC22', 1),
+(2, '2026-02-03', 27500, 'DC50', 2),
+(3, '2025-12-20', 41000, 'HPC150', 3);
+
+INSERT INTO `Visite` (`idVisite`, `etat`, `dureeTotale`, `idStation`) VALUES
+(1, 'p', 4, 2);
+
+INSERT INTO `Technicien_Visite` (`matricule`, `idVisite`) VALUES
+(102, 1);
+
+INSERT INTO `Visite_Borne` (`idVisite`, `idBorne`) VALUES
+(1, 2);
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

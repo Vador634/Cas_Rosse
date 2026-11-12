@@ -1,5 +1,5 @@
 <?php
-require_once 'Modèle/Station.php';
+require_once 'Modele/Station.php';
 
 /**
  * Classe StationDAO

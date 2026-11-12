@@ -1,6 +1,6 @@
 <?php
-require_once 'DAO/VisiteDAO.php';
-require_once 'Modèle/Visite.php';
+require_once __DIR__ . '/../DAO/VisiteDAO.php';
+require_once 'Modele/Visite.php';
 
 /**
  * Classe VisiteController

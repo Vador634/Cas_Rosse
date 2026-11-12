@@ -1,5 +1,5 @@
 <?php
-require_once 'Modèle/TypeBorne.php';
+require_once 'Modele/TypeBorne.php';
 
 /**
  * Classe TypeBorneDAO

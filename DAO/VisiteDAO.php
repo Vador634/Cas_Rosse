@@ -1,5 +1,5 @@
 <?php
-require_once 'Modèle/Visite.php';
+require_once 'Modele/Visite.php';
 
 /**
  * Classe VisiteDAO

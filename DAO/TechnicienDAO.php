@@ -1,5 +1,5 @@
 <?php
-require_once 'Modèle/Technicien.php';
+require_once 'Modele/Technicien.php';
 
 /**
  * Classe TechnicienDAO
@@ -148,32 +148,56 @@ class TechnicienDAO {
 
     /**
      * Attribue une borne à un technicien
-     * Crée une visite planifiée, puis lie le technicien et la borne à cette visite
+     * Crée une visite planifiée, puis lie le technicien et la borne à cette visite.
+     * Les trois insertions sont faites dans une transaction : en cas d'erreur,
+     * aucune visite "orpheline" ne reste en base.
      */
     public function attribuerBorne($matricule, $idBorne, $dureeTotale) {
         // Récupérer l'idStation de la borne
-        $sql = "SELECT idStation FROM Borne WHERE idBorne = :idBorne";
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->pdo->prepare("SELECT idStation FROM Borne WHERE idBorne = :idBorne");
         $stmt->execute([':idBorne' => $idBorne]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return false;
-        $idStation = $row['idStation'];
 
-        // Créer une visite planifiée avec la durée
-        $sql = "INSERT INTO Visite (etat, dureeTotale, idStation) VALUES ('p', :duree, :idStation)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':duree' => $dureeTotale, ':idStation' => $idStation]);
-        $idVisite = $this->pdo->lastInsertId();
+        $transactionLocale = !$this->pdo->inTransaction();
+        if ($transactionLocale) $this->pdo->beginTransaction();
 
-        // Lier la visite au technicien
-        $sql = "INSERT INTO Technicien_Visite (matricule, idVisite) VALUES (:matricule, :idVisite)";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([':matricule' => $matricule, ':idVisite' => $idVisite]);
+        try {
+            // Créer une visite planifiée avec la durée
+            $stmt = $this->pdo->prepare("INSERT INTO Visite (etat, dureeTotale, idStation) VALUES ('p', :duree, :idStation)");
+            $stmt->execute([':duree' => $dureeTotale, ':idStation' => $row['idStation']]);
+            $idVisite = $this->pdo->lastInsertId();
 
-        // Lier la visite à la borne
-        $sql = "INSERT INTO Visite_Borne (idVisite, idBorne) VALUES (:idVisite, :idBorne)";
-        $stmt = $this->pdo->prepare($sql);
-        return $stmt->execute([':idVisite' => $idVisite, ':idBorne' => $idBorne]);
+            // Lier la visite au technicien
+            $stmt = $this->pdo->prepare("INSERT INTO Technicien_Visite (matricule, idVisite) VALUES (:matricule, :idVisite)");
+            $stmt->execute([':matricule' => $matricule, ':idVisite' => $idVisite]);
+
+            // Lier la visite à la borne
+            $stmt = $this->pdo->prepare("INSERT INTO Visite_Borne (idVisite, idBorne) VALUES (:idVisite, :idBorne)");
+            $stmt->execute([':idVisite' => $idVisite, ':idBorne' => $idBorne]);
+
+            if ($transactionLocale) $this->pdo->commit();
+            return true;
+        } catch (Exception $e) {
+            if ($transactionLocale) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Planning des visites : une ligne par visite avec technicien, borne et station.
+     */
+    public function getPlanning() {
+        $sql = "SELECT v.idVisite, v.etat, v.dureeTotale, s.libelleEmplacement,
+                       vb.idBorne, b.codeTypeBorne, t.matricule, t.nom, t.prenom
+                FROM Visite v
+                JOIN Station s ON s.idStation = v.idStation
+                LEFT JOIN Visite_Borne vb ON vb.idVisite = v.idVisite
+                LEFT JOIN Borne b ON b.idBorne = vb.idBorne
+                LEFT JOIN Technicien_Visite tv ON tv.idVisite = v.idVisite
+                LEFT JOIN Technicien t ON t.matricule = tv.matricule
+                ORDER BY v.idVisite DESC";
+        return $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

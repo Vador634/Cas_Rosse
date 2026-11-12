@@ -3,232 +3,294 @@ $bornes = $bornes ?? [];
 $stations = $stations ?? [];
 $typesBorne = $typesBorne ?? [];
 $techniciensDispo = $techniciensDispo ?? [];
-$message = $message ?? '';
+$planning = $planning ?? [];
+$flash = $flash ?? null;
+$csrf = $csrf ?? '';
+
+// Libellés utiles pour l'affichage
+$nomStation = [];
+foreach ($stations as $station) {
+    $nomStation[$station->getIdStation()] = $station->getLibelleEmplacement();
+}
+$etats = ['p' => 'Planifiée', 'a' => 'En cours', 'r' => 'Réalisée'];
+
+function e($valeur) {
+    return htmlspecialchars((string)$valeur, ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion ROSSE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROSSE — Maintenance des bornes</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        h1 { color: #333; }
-        h2 { color: #555; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
-        .container { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1; min-width: 280px; }
-        form { display: flex; flex-direction: column; gap: 10px; }
-        label { font-weight: bold; font-size: 14px; }
-        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        button { padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-        button:hover { background: #0056b3; }
-        .message { padding: 10px; margin-bottom: 15px; border-radius: 4px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #007bff; color: white; }
-        tr:hover { background: #f1f1f1; }
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; color: white; }
-        .badge-green { background: #28a745; }
-        .badge-orange { background: #fd7e14; }
-        .badge-red { background: #dc3545; }
+        :root { --bleu: #1f5fbf; --bleu-fonce: #17478f; --fond: #f3f5f9; --ligne: #dde3ec; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--fond); color: #1d2533; }
+        header { padding: 22px 24px; background: var(--bleu); color: #fff; }
+        header h1 { margin: 0; font-size: 22px; }
+        header p { margin: 4px 0 0; opacity: .85; font-size: 14px; }
+        main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        h2 { margin: 32px 0 12px; font-size: 18px; color: var(--bleu-fonce); border-bottom: 2px solid var(--bleu); padding-bottom: 6px; }
+        .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+        .card { background: #fff; padding: 18px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        .card h3 { margin: 0 0 12px; font-size: 16px; }
+        form { display: flex; flex-direction: column; gap: 8px; }
+        label { font-weight: 600; font-size: 13px; }
+        input, select { padding: 8px; border: 1px solid #c4ccd8; border-radius: 4px; font-size: 14px; }
+        button { margin-top: 4px; padding: 10px; background: var(--bleu); color: #fff; border: 0; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: var(--bleu-fonce); }
+        .message { padding: 12px 14px; margin-bottom: 18px; border-radius: 6px; border: 1px solid; }
+        .message.ok { background: #e3f6e8; color: #155724; border-color: #b9e3c4; }
+        .message.erreur { background: #fde8e8; color: #8a1c1c; border-color: #f3c0c0; }
+        .table-wrap { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--ligne); font-size: 14px; white-space: nowrap; }
+        th { background: #eaf0fa; color: var(--bleu-fonce); }
+        tr:last-child td { border-bottom: 0; }
+        .vide { color: #6b7686; font-style: italic; }
+        .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; color: #fff; }
+        .badge-green { background: #28a745; } .badge-orange { background: #e8730c; } .badge-red { background: #dc3545; } .badge-blue { background: var(--bleu); }
+        .astuce { font-size: 12px; color: #6b7686; margin: 0; }
     </style>
 </head>
 <body>
 
-<h1>Gestion des Bornes et Techniciens - ROSSE</h1>
+<header>
+    <h1>ROSSE — Maintenance des bornes de recharge</h1>
+    <p>Stations, bornes, techniciens et affectation automatique des visites de révision</p>
+</header>
 
-<?php if (!empty($message)): ?>
-    <div class="message"><?= htmlspecialchars($message) ?></div>
+<main>
+
+<?php if ($flash && $flash['texte'] !== ''): ?>
+    <div class="message <?= $flash['ok'] ? 'ok' : 'erreur' ?>" role="status"><?= e($flash['texte']) ?></div>
 <?php endif; ?>
 
-<div class="container">
+<h2>Paramétrage</h2>
+<div class="grille">
     <div class="card">
-        <h2>Créer une Station</h2>
+        <h3>Nouvelle station</h3>
         <form method="POST">
             <input type="hidden" name="action" value="creerStation">
-            <label>Libellé emplacement</label>
-            <input type="text" name="libelleEmplacement" required>
-            <button type="submit">Créer la Station</button>
+            <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+            <label for="libelleEmplacement">Libellé de l'emplacement</label>
+            <input type="text" id="libelleEmplacement" name="libelleEmplacement" maxlength="100" required>
+            <button type="submit">Créer la station</button>
         </form>
     </div>
 
     <div class="card">
-        <h2>Créer un Type de Borne</h2>
+        <h3>Nouveau type de borne</h3>
         <form method="POST">
             <input type="hidden" name="action" value="creerTypeBorne">
-            <label>Code type borne</label>
-            <input type="text" name="codeTypeBorne" required>
-            <label>Durée révision (heures)</label>
-            <input type="number" name="dureeRevision" required>
-            <label>Nb jours entre révisions</label>
-            <input type="number" name="nbJoursEntreRevisions" required>
-            <label>Nb unités entre révisions</label>
-            <input type="number" name="nbUnitesEntreRevisions" required>
-            <button type="submit">Créer le Type</button>
-        </form>
-    </div>
-</div>
-
-<div class="container">
-    <div class="card">
-        <h2>Créer une Borne</h2>
-        <form method="POST">
-            <input type="hidden" name="action" value="creerBorne">
-            <label>Date dernière révision</label>
-            <input type="date" name="dateDerniereRevision" required>
-            <label>Indice compteur unités(Kw/h)</label>
-            <input type="number" name="indiceCompteurUnites" required>
-            <label>Type de borne</label>
-            <select name="codeTypeBorne" required>
-                <option value="">-- Choisir un type --</option>
-                <?php foreach ($typesBorne as $type): ?>
-                    <option value="<?= htmlspecialchars($type->getCodeTypeBorne()) ?>">
-                        <?= htmlspecialchars($type->getCodeTypeBorne()) ?> (révision: <?= $type->getDureeRevision() ?>h)
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <label>Station</label>
-            <select name="idStation" required>
-                <option value="">-- Choisir une station --</option>
-                <?php foreach ($stations as $station): ?>
-                    <option value="<?= $station->getIdStation() ?>">
-                        <?= htmlspecialchars($station->getLibelleEmplacement()) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <button type="submit">Créer la Borne</button>
+            <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+            <label for="codeTypeBorne">Code (10 caractères max.)</label>
+            <input type="text" id="codeTypeBorne" name="codeTypeBorne" maxlength="10" required>
+            <label for="dureeRevision">Durée d'une révision (heures)</label>
+            <input type="number" id="dureeRevision" name="dureeRevision" min="1" required>
+            <label for="nbJoursEntreRevisions">Jours entre deux révisions</label>
+            <input type="number" id="nbJoursEntreRevisions" name="nbJoursEntreRevisions" min="1" required>
+            <label for="nbUnitesEntreRevisions">Unités (kWh) entre deux révisions</label>
+            <input type="number" id="nbUnitesEntreRevisions" name="nbUnitesEntreRevisions" min="1" required>
+            <button type="submit">Créer le type</button>
         </form>
     </div>
 
     <div class="card">
-        <h2>Créer un Technicien</h2>
+        <h3>Nouveau technicien</h3>
         <form method="POST">
             <input type="hidden" name="action" value="creerTechnicien">
-            <label>Matricule</label>
-            <input type="number" name="matricule" required>
-            <label>Nom</label>
-            <input type="text" name="nom" required>
-            <label>Prénom</label>
-            <input type="text" name="prenom" required>
-            <button type="submit">Créer le Technicien</button>
+            <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+            <label for="matricule">Matricule</label>
+            <input type="number" id="matricule" name="matricule" min="1" required>
+            <label for="nom">Nom</label>
+            <input type="text" id="nom" name="nom" minlength="2" maxlength="50" required>
+            <label for="prenom">Prénom</label>
+            <input type="text" id="prenom" name="prenom" minlength="2" maxlength="50" required>
+            <button type="submit">Créer le technicien</button>
         </form>
     </div>
 </div>
 
-<div class="container">
+<h2>Bornes et affectations</h2>
+<div class="grille">
     <div class="card">
-        <h2>Attribuer une Borne à un Technicien</h2>
+        <h3>Nouvelle borne</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="creerBorne">
+            <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+            <label for="dateDerniereRevision">Date de dernière révision</label>
+            <input type="date" id="dateDerniereRevision" name="dateDerniereRevision" required>
+            <label for="indiceCompteurUnites">Indice du compteur (kWh)</label>
+            <input type="number" id="indiceCompteurUnites" name="indiceCompteurUnites" min="0" required>
+            <label for="codeTypeBorneBorne">Type de borne</label>
+            <select id="codeTypeBorneBorne" name="codeTypeBorne" required>
+                <option value="">-- Choisir un type --</option>
+                <?php foreach ($typesBorne as $type): ?>
+                    <option value="<?= e($type->getCodeTypeBorne()) ?>">
+                        <?= e($type->getCodeTypeBorne()) ?> (révision : <?= e($type->getDureeRevision()) ?> h)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <label for="idStation">Station</label>
+            <select id="idStation" name="idStation" required>
+                <option value="">-- Choisir une station --</option>
+                <?php foreach ($stations as $station): ?>
+                    <option value="<?= e($station->getIdStation()) ?>"><?= e($station->getLibelleEmplacement()) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit">Créer la borne</button>
+            <p class="astuce">La borne est automatiquement confiée au technicien le moins chargé.</p>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Attribuer une borne manuellement</h3>
         <form method="POST">
             <input type="hidden" name="action" value="attribuerBorne">
-            <label>Technicien (trié par disponibilité)</label>
-            <select name="matricule" required>
+            <input type="hidden" name="csrf" value="<?= e($csrf) ?>">
+            <label for="matriculeAttrib">Technicien (du moins chargé au plus chargé)</label>
+            <select id="matriculeAttrib" name="matricule" required>
                 <option value="">-- Choisir un technicien --</option>
-                <?php foreach ($techniciensDispo as $item): ?>
-                    <?php $t = $item['technicien']; ?>
-                    <option value="<?= $t->getMatricule() ?>">
-                        <?= htmlspecialchars($t->getNomComplet()) ?> (<?= $item['totalHeures'] ?>h - <?= $item['nbVisites'] ?> visites)
+                <?php foreach ($techniciensDispo as $item): $t = $item['technicien']; ?>
+                    <option value="<?= e($t->getMatricule()) ?>">
+                        <?= e($t->getNomComplet()) ?> (<?= e($item['totalHeures']) ?> h · <?= e($item['nbVisites']) ?> visite(s))
                     </option>
                 <?php endforeach; ?>
             </select>
-            <label>Borne</label>
-            <select name="idBorne" required>
+            <label for="idBorne">Borne</label>
+            <select id="idBorne" name="idBorne" required>
                 <option value="">-- Choisir une borne --</option>
                 <?php foreach ($bornes as $borne): ?>
-                    <option value="<?= $borne->getIdBorne() ?>">
-                        Borne #<?= $borne->getIdBorne() ?> (Station <?= $borne->getIdStation() ?>)
+                    <option value="<?= e($borne->getIdBorne()) ?>">
+                        Borne #<?= e($borne->getIdBorne()) ?> — <?= e($nomStation[$borne->getIdStation()] ?? 'Station ' . $borne->getIdStation()) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
-            <label>Durée de la visite (heures)</label>
-            <input type="number" name="dureeTotale" min="1" required>
+            <label for="dureeTotale">Durée de la visite (heures)</label>
+            <input type="number" id="dureeTotale" name="dureeTotale" min="1" required>
             <button type="submit">Attribuer</button>
         </form>
     </div>
 </div>
 
-<h2>Techniciens triés par disponibilité (moins d'heures en premier)</h2>
+<h2>Charge des techniciens</h2>
+<div class="table-wrap">
 <table>
-    <thead>
-        <tr>
-            <th>Matricule</th>
-            <th>Nom</th>
-            <th>Prénom</th>
-            <th>Heures totales</th>
-            <th>Nb Visites</th>
-            <th>Charge</th>
-        </tr>
-    </thead>
+    <thead><tr><th>Matricule</th><th>Nom</th><th>Prénom</th><th>Heures planifiées</th><th>Visites</th><th>Charge</th></tr></thead>
     <tbody>
-        <?php foreach ($techniciensDispo as $item): ?>
-            <?php
-                $t = $item['technicien'];
-                $h = $item['totalHeures'];
-                if ($h == 0) $badgeClass = 'badge-green';
-                elseif ($h <= 10) $badgeClass = 'badge-orange';
-                else $badgeClass = 'badge-red';
-            ?>
-            <tr>
-                <td><?= $t->getMatricule() ?></td>
-                <td><?= htmlspecialchars($t->getNom()) ?></td>
-                <td><?= htmlspecialchars($t->getPrenom()) ?></td>
-                <td><?= $h ?>h</td>
-                <td><?= $item['nbVisites'] ?></td>
-                <td><span class="badge <?= $badgeClass ?>">
-                    <?php if ($h == 0) echo 'Libre';
-                          elseif ($h <= 10) echo 'Modéré';
-                          else echo 'Chargé'; ?>
-                </span></td>
-            </tr>
-        <?php endforeach; ?>
+    <?php if (!$techniciensDispo): ?>
+        <tr><td colspan="6" class="vide">Aucun technicien enregistré.</td></tr>
+    <?php endif; ?>
+    <?php foreach ($techniciensDispo as $item):
+        $t = $item['technicien'];
+        $h = (int)$item['totalHeures'];
+        if ($h === 0) { $classe = 'badge-green'; $libelle = 'Libre'; }
+        elseif ($h <= 10) { $classe = 'badge-orange'; $libelle = 'Modéré'; }
+        else { $classe = 'badge-red'; $libelle = 'Chargé'; }
+    ?>
+        <tr>
+            <td><?= e($t->getMatricule()) ?></td>
+            <td><?= e($t->getNom()) ?></td>
+            <td><?= e($t->getPrenom()) ?></td>
+            <td><?= $h ?> h</td>
+            <td><?= e($item['nbVisites']) ?></td>
+            <td><span class="badge <?= $classe ?>"><?= $libelle ?></span></td>
+        </tr>
+    <?php endforeach; ?>
     </tbody>
 </table>
+</div>
 
-<h2>Aperçu des Stations</h2>
+<h2>Planning des visites</h2>
+<div class="table-wrap">
 <table>
-    <thead>
-        <tr>
-            <th>ID Station</th>
-            <th>Emplacement</th>
-            <th>Nb Bornes</th>
-        </tr>
-    </thead>
+    <thead><tr><th>Visite</th><th>État</th><th>Borne</th><th>Station</th><th>Technicien</th><th>Durée</th></tr></thead>
     <tbody>
-        <?php foreach ($stations as $station): ?>
-            <?php
-                $nbBornes = 0;
-                foreach ($bornes as $borne) {
-                    if ($borne->getIdStation() == $station->getIdStation()) $nbBornes++;
-                }
-            ?>
+    <?php if (!$planning): ?>
+        <tr><td colspan="6" class="vide">Aucune visite planifiée pour le moment.</td></tr>
+    <?php endif; ?>
+    <?php foreach ($planning as $v): ?>
+        <tr>
+            <td>#<?= e($v['idVisite']) ?></td>
+            <td><span class="badge badge-blue"><?= e($etats[$v['etat']] ?? $v['etat']) ?></span></td>
+            <td><?= $v['idBorne'] ? '#' . e($v['idBorne']) . ' (' . e($v['codeTypeBorne']) . ')' : '—' ?></td>
+            <td><?= e($v['libelleEmplacement']) ?></td>
+            <td><?= $v['matricule'] ? e($v['prenom'] . ' ' . $v['nom']) . ' (' . e($v['matricule']) . ')' : '—' ?></td>
+            <td><?= e($v['dureeTotale']) ?> h</td>
+        </tr>
+    <?php endforeach; ?>
+    </tbody>
+</table>
+</div>
+
+<h2>Bornes</h2>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Borne</th><th>Type</th><th>Station</th><th>Dernière révision</th><th>Compteur</th></tr></thead>
+    <tbody>
+    <?php if (!$bornes): ?>
+        <tr><td colspan="5" class="vide">Aucune borne enregistrée.</td></tr>
+    <?php endif; ?>
+    <?php foreach ($bornes as $borne): ?>
+        <tr>
+            <td>#<?= e($borne->getIdBorne()) ?></td>
+            <td><?= e($borne->getCodeTypeBorne()) ?></td>
+            <td><?= e($nomStation[$borne->getIdStation()] ?? $borne->getIdStation()) ?></td>
+            <td><?= e(date('d/m/Y', strtotime($borne->getDateDerniereRevision()))) ?></td>
+            <td><?= e($borne->getIndiceCompteurUnites()) ?> kWh</td>
+        </tr>
+    <?php endforeach; ?>
+    </tbody>
+</table>
+</div>
+
+<h2>Stations et types de borne</h2>
+<div class="grille">
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Station</th><th>Emplacement</th><th>Bornes</th></tr></thead>
+        <tbody>
+        <?php if (!$stations): ?>
+            <tr><td colspan="3" class="vide">Aucune station.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($stations as $station):
+            $nbBornes = 0;
+            foreach ($bornes as $borne) {
+                if ($borne->getIdStation() == $station->getIdStation()) $nbBornes++;
+            }
+        ?>
             <tr>
-                <td><?= $station->getIdStation() ?></td>
-                <td><?= htmlspecialchars($station->getLibelleEmplacement()) ?></td>
+                <td>#<?= e($station->getIdStation()) ?></td>
+                <td><?= e($station->getLibelleEmplacement()) ?></td>
                 <td><?= $nbBornes ?></td>
             </tr>
         <?php endforeach; ?>
-    </tbody>
-</table>
-
-<h2>Types de Borne</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Code</th>
-            <th>Durée révision</th>
-            <th>Jours entre révisions</th>
-            <th>Unités entre révisions</th>
-        </tr>
-    </thead>
-    <tbody>
+        </tbody>
+    </table>
+    </div>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Type</th><th>Révision</th><th>Tous les</th><th>Ou tous les</th></tr></thead>
+        <tbody>
+        <?php if (!$typesBorne): ?>
+            <tr><td colspan="4" class="vide">Aucun type de borne.</td></tr>
+        <?php endif; ?>
         <?php foreach ($typesBorne as $type): ?>
             <tr>
-                <td><?= htmlspecialchars($type->getCodeTypeBorne()) ?></td>
-                <td><?= $type->getDureeRevision() ?>h</td>
-                <td><?= $type->getNbJoursEntreRevisions() ?></td>
-                <td><?= $type->getNbUnitesEntreRevisions() ?></td>
+                <td><?= e($type->getCodeTypeBorne()) ?></td>
+                <td><?= e($type->getDureeRevision()) ?> h</td>
+                <td><?= e($type->getNbJoursEntreRevisions()) ?> jours</td>
+                <td><?= e($type->getNbUnitesEntreRevisions()) ?> kWh</td>
             </tr>
         <?php endforeach; ?>
-    </tbody>
-</table>
+        </tbody>
+    </table>
+    </div>
+</div>
 
+</main>
 </body>
 </html>

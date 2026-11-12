@@ -1,6 +1,6 @@
 <?php
-require_once 'DAO/TechnicienDAO.php';
-require_once 'Modèle/Technicien.php';
+require_once __DIR__ . '/../DAO/TechnicienDAO.php';
+require_once 'Modele/Technicien.php';
 
 /**
  * Classe TechnicienController
@@ -71,9 +71,14 @@ class TechnicienController {
                 return false;
             }
 
+            if ($this->technicienDAO->getByMatricule($matricule)) {
+                echo "Le matricule $matricule est déjà utilisé";
+                return false;
+            }
+
             // Créer l'objet Technicien
             $technicien = new Technicien($matricule, $nom, $prenom);
-            
+
             // Sauvegarder
             if ($this->technicienDAO->create($technicien)) {
                 echo "Technicien créé avec succès";
@@ -111,7 +116,7 @@ class TechnicienController {
 
             // Créer l'objet
             $technicien = new Technicien($matricule, $nom, $prenom);
-            
+
             // Mettre à jour
             if ($this->technicienDAO->update($technicien)) {
                 echo "Technicien modifié avec succès";
@@ -181,12 +186,29 @@ class TechnicienController {
     }
 
     /**
+     * Action: planning des visites (visite, technicien, borne, station)
+     */
+    public function getPlanning() {
+        try {
+            return $this->technicienDAO->getPlanning();
+        } catch (Exception $e) {
+            echo "Erreur: " . $e->getMessage();
+            return [];
+        }
+    }
+
+    /**
      * Action: Attribuer une borne à un technicien
      */
     public function attribuerBorne($matricule, $idBorne, $dureeTotale) {
         try {
-            if (empty($matricule) || empty($idBorne) || !is_numeric($dureeTotale)) {
-                echo "Le matricule, l'ID de la borne et la durée sont obligatoires";
+            if (empty($matricule) || empty($idBorne) || !ctype_digit((string)$dureeTotale) || (int)$dureeTotale < 1) {
+                echo "Le technicien, la borne et une durée d'au moins 1 heure sont obligatoires";
+                return false;
+            }
+
+            if (!$this->technicienDAO->getByMatricule($matricule)) {
+                echo "Technicien introuvable";
                 return false;
             }
 

@@ -1,6 +1,6 @@
 <?php
-require_once 'DAO/StationDAO.php';
-require_once 'Modèle/Station.php';
+require_once __DIR__ . '/../DAO/StationDAO.php';
+require_once 'Modele/Station.php';
 
 /**
  * Classe StationController

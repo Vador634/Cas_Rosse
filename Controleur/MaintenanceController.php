@@ -1,5 +1,5 @@
 <?php
-require_once 'DAO/TechnicienDAO.php';
+require_once __DIR__ . '/../DAO/TechnicienDAO.php';
 
 /**
  * Classe MaintenanceController
